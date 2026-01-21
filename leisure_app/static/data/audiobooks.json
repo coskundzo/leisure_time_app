@@ -1,0 +1,72 @@
+[
+  {
+    "title": "Pride and Prejudice",
+    "author": "Jane Austen",
+    "librivox_page": "https://librivox.org/pride-and-prejudice-by-jane-austen/",
+    "mp3_url": "https://archive.org/details/pride_and_prejudice_librivox",
+    "language": "English"
+  },
+  {
+    "title": "Alice's Adventures in Wonderland",
+    "author": "Lewis Carroll",
+    "librivox_page": "https://librivox.org/alices-adventures-in-wonderland-by-lewis-carroll-5/",
+    "mp3_url": "https://archive.org/details/aliceinwonderland_1102_librivox",
+    "language": "English"
+  },
+  {
+    "title": "The Adventures of Sherlock Holmes",
+    "author": "Sir Arthur Conan Doyle",
+    "librivox_page": "https://librivox.org/the-adventures-of-sherlock-holmes/",
+    "mp3_url": "https://archive.org/details/adventures_sherlockholmes_1007_librivox",
+    "language": "English"
+  },
+  {
+    "title": "Frankenstein; Or, The Modern Prometheus",
+    "author": "Mary Wollstonecraft Shelley",
+    "librivox_page": "https://librivox.org/frankenstein-or-the-modern-prometheus-by-mary-wollstonecraft-shelley/",
+    "mp3_url": "https://archive.org/search.php?query=frankenstein%20librivox",
+    "language": "English"
+  },
+  {
+    "title": "Dracula",
+    "author": "Bram Stoker",
+    "librivox_page": "https://librivox.org/dracula-by-bram-stoker-4/",
+    "mp3_url": "https://archive.org/search.php?query=dracula%20librivox",
+    "language": "English"
+  },
+  {
+    "title": "A Tale of Two Cities",
+    "author": "Charles Dickens",
+    "librivox_page": "https://librivox.org/a-tale-of-two-cities-by-charles-dickens/",
+    "mp3_url": "https://archive.org/search.php?query=a%20tale%20of%20two%20cities%20librivox",
+    "language": "English"
+  },
+  {
+    "title": "Moby Dick; Or, The Whale",
+    "author": "Herman Melville",
+    "librivox_page": "https://librivox.org/moby-dick-or-the-whale-by-herman-melville/",
+    "mp3_url": "https://archive.org/search.php?query=moby%20dick%20librivox",
+    "language": "English"
+  },
+  {
+    "title": "The Count of Monte Cristo",
+    "author": "Alexandre Dumas",
+    "librivox_page": "https://librivox.org/the-count-of-monte-cristo-by-alexandre-dumas/",
+    "mp3_url": "https://archive.org/search.php?query=count%20of%20monte%20cristo%20librivox",
+    "language": "English"
+  },
+  {
+    "title": "Sense and Sensibility",
+    "author": "Jane Austen",
+    "librivox_page": "https://librivox.org/sense-and-sensibility-by-jane-austen/",
+    "mp3_url": "https://archive.org/search.php?query=sense%20and%20sensibility%20librivox",
+    "language": "English"
+  },
+  {
+    "title": "The Art of War",
+    "author": "Sun Tzu",
+    "librivox_page": "https://librivox.org/the-art-of-war-by-sun-tzu/",
+    "mp3_url": "https://archive.org/search.php?query=the%20art%20of%20war%20librivox",
+    "language": "English"
+  }
+]
