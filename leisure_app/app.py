@@ -175,6 +175,7 @@ def download_youtube_music():
     """Download a track from YouTube by video ID"""
     data = request.get_json()
     video_id = data.get('video_id', '').strip()
+    download_format = data.get('format', 'mp3')  # 'mp3' or 'video'
     
     if not video_id:
         return jsonify({'success': False, 'error': 'No video ID provided'})
@@ -183,25 +184,34 @@ def download_youtube_music():
         os.makedirs(MUSIC_DIR, exist_ok=True)
         video_url = f"https://www.youtube.com/watch?v={video_id}"
         
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "outtmpl": os.path.join(MUSIC_DIR, "%(title)s.%(ext)s"),
-            "noplaylist": True,
-            "quiet": True,
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }],
-        }
+        if download_format == 'video':
+            ydl_opts = {
+                "format": "best[ext=mp4]/best",
+                "outtmpl": os.path.join(MUSIC_DIR, "%(title)s.%(ext)s"),
+                "noplaylist": True,
+                "quiet": True,
+            }
+        else:
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "outtmpl": os.path.join(MUSIC_DIR, "%(title)s.%(ext)s"),
+                "noplaylist": True,
+                "quiet": True,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }],
+            }
         
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=True)
             title = info.get('title', 'Unknown')
         
+        format_label = "video" if download_format == 'video' else "MP3"
         return jsonify({
             'success': True, 
-            'message': f'"{title}" downloaded successfully!',
+            'message': f'"{title}" ({format_label}) downloaded successfully!',
             'title': title
         })
     except Exception as e:

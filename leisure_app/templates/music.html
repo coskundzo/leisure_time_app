@@ -4,23 +4,6 @@
 
 {% block extra_head %}
 <style>
-  .now-playing-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(180deg, #282828 0%, #181818 100%);
-    padding: 12px 16px;
-    z-index: 1050;
-    border-top: 1px solid #333;
-  }
-  .now-playing-bar .progress {
-    height: 4px;
-    cursor: pointer;
-  }
-  .now-playing-bar .progress:hover {
-    height: 6px;
-  }
   .track-item:hover .track-actions {
     opacity: 1;
   }
@@ -46,6 +29,77 @@
   }
   body {
     padding-bottom: 100px;
+  }
+  .audio-player-card {
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  }
+  .audio-visualizer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    height: 40px;
+  }
+  .audio-visualizer .bar {
+    width: 4px;
+    background: linear-gradient(180deg, #e94560, #ff6b6b);
+    border-radius: 2px;
+    animation: pulse 0.5s ease-in-out infinite alternate;
+  }
+  .audio-visualizer .bar:nth-child(1) { height: 15px; animation-delay: 0s; }
+  .audio-visualizer .bar:nth-child(2) { height: 25px; animation-delay: 0.1s; }
+  .audio-visualizer .bar:nth-child(3) { height: 35px; animation-delay: 0.2s; }
+  .audio-visualizer .bar:nth-child(4) { height: 28px; animation-delay: 0.3s; }
+  .audio-visualizer .bar:nth-child(5) { height: 38px; animation-delay: 0.15s; }
+  .audio-visualizer .bar:nth-child(6) { height: 20px; animation-delay: 0.25s; }
+  .audio-visualizer .bar:nth-child(7) { height: 30px; animation-delay: 0.05s; }
+  .audio-visualizer.paused .bar {
+    animation: none;
+    height: 8px !important;
+  }
+  @keyframes pulse {
+    0% { transform: scaleY(0.5); }
+    100% { transform: scaleY(1); }
+  }
+  .volume-slider, .seek-slider {
+    height: 4px;
+    -webkit-appearance: none;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
+    outline: none;
+  }
+  .volume-slider {
+    width: 80px;
+  }
+  .seek-slider {
+    width: 100%;
+  }
+  .volume-slider::-webkit-slider-thumb, .seek-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .volume-slider::-moz-range-thumb, .seek-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+  .track-item.now-playing {
+    display: none !important;
+  }
+  .speed-btn {
+    min-width: 50px;
+    font-size: 0.75rem;
+  }
+  .speed-btn.active {
+    background: #e94560 !important;
+    border-color: #e94560 !important;
   }
 </style>
 {% endblock %}
@@ -95,26 +149,129 @@
         <div class="position-absolute rounded-circle bg-white opacity-10" style="width: 200px; height: 200px; top: -50px; right: -50px; z-index: 1;"></div>
       </div>
 
-      <!-- Now Playing Preview -->
-      <div id="ytPlayerCard" class="card mb-4 shadow-sm border-0 d-none">
-        <div class="card-header bg-dark text-white border-0 py-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold">
-              <i class="bi bi-play-circle-fill text-danger me-2"></i>Now Playing
-            </h5>
-            <button class="btn btn-sm btn-outline-light" onclick="closePlayer()">
-              <i class="bi bi-x-lg"></i>
-            </button>
+      <!-- Audio Player (No Video) -->
+      <div id="audioPlayerCard" class="card mb-4 shadow-sm border-0 d-none audio-player-card">
+        <div class="card-body text-white p-4">
+          <div class="d-flex align-items-start">
+            <!-- Album Art / Thumbnail -->
+            <div class="flex-shrink-0 me-4">
+              <div id="playerThumbnail" class="rounded shadow" style="width: 100px; height: 100px; background: #333; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <i class="bi bi-music-note-beamed text-white" style="font-size: 2.5rem;"></i>
+              </div>
+            </div>
+            <!-- Track Info & Controls -->
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <h5 id="playerTitle" class="mb-1 fw-bold">--</h5>
+                  <p id="playerChannel" class="mb-0 text-white-50 small">--</p>
+                </div>
+                <!-- Three Dot Menu -->
+                <div class="dropdown">
+                  <button class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="addCurrentToQueue(); return false;">
+                        <i class="bi bi-collection-play me-2"></i>Add to Queue
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="playNextInQueue(); return false;">
+                        <i class="bi bi-skip-forward-fill me-2"></i>Play Next
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="downloadCurrentTrack(); return false;">
+                        <i class="bi bi-download me-2"></i>Save to Library
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="shareCurrentTrack(); return false;">
+                        <i class="bi bi-share me-2"></i>Share
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                      <a class="dropdown-item" href="#" id="openInYoutubeLink" target="_blank">
+                        <i class="bi bi-youtube me-2"></i>Open in YouTube
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="mb-3">
+                <div class="d-flex justify-content-between small text-white-50 mb-1">
+                  <span id="currentTime">0:00</span>
+                  <span id="totalTime">0:00</span>
+                </div>
+                <input type="range" class="seek-slider" id="seekSlider" min="0" max="100" value="0" oninput="seekTo(this.value)" onchange="seekTo(this.value)">
+              </div>
+              
+              <!-- Main Controls Row -->
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <!-- Stop -->
+                <button class="btn btn-outline-light btn-sm" onclick="stopPlayer()" title="Stop">
+                  <i class="bi bi-stop-fill"></i>
+                </button>
+                <!-- Previous -->
+                <button class="btn btn-outline-light btn-sm" onclick="playPrevInQueue()" title="Previous">
+                  <i class="bi bi-skip-start-fill"></i>
+                </button>
+                <!-- Play/Pause -->
+                <button id="playerPlayPause" class="btn btn-light rounded-circle" style="width: 45px; height: 45px;" onclick="togglePlayPause()">
+                  <i class="bi bi-play-fill"></i>
+                </button>
+                <!-- Next -->
+                <button class="btn btn-outline-light btn-sm" onclick="playNextInQueue()" title="Next">
+                  <i class="bi bi-skip-end-fill"></i>
+                </button>
+                
+                <!-- Volume -->
+                <div class="d-flex align-items-center gap-2 ms-3">
+                  <button class="btn btn-outline-light btn-sm" onclick="toggleMute()" id="muteBtn" title="Mute">
+                    <i class="bi bi-volume-up-fill"></i>
+                  </button>
+                  <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" onchange="setVolume(this.value)" oninput="setVolume(this.value)">
+                </div>
+                
+                <!-- Audio Visualizer -->
+                <div id="audioVisualizer" class="audio-visualizer paused ms-3">
+                  <div class="bar"></div>
+                  <div class="bar"></div>
+                  <div class="bar"></div>
+                  <div class="bar"></div>
+                  <div class="bar"></div>
+                  <div class="bar"></div>
+                  <div class="bar"></div>
+                </div>
+                
+                <!-- Close -->
+                <button class="btn btn-outline-danger btn-sm ms-auto" onclick="closeAudioPlayer()" title="Close">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+              
+              <!-- Speed Controls -->
+              <div class="d-flex align-items-center gap-2">
+                <span class="text-white-50 small me-2"><i class="bi bi-speedometer2 me-1"></i>Speed:</span>
+                <button class="btn btn-outline-light btn-sm speed-btn" onclick="setPlaybackSpeed(0.5)">0.5x</button>
+                <button class="btn btn-outline-light btn-sm speed-btn" onclick="setPlaybackSpeed(0.75)">0.75x</button>
+                <button class="btn btn-outline-light btn-sm speed-btn active" onclick="setPlaybackSpeed(1)">1x</button>
+                <button class="btn btn-outline-light btn-sm speed-btn" onclick="setPlaybackSpeed(1.25)">1.25x</button>
+                <button class="btn btn-outline-light btn-sm speed-btn" onclick="setPlaybackSpeed(1.5)">1.5x</button>
+                <button class="btn btn-outline-light btn-sm speed-btn" onclick="setPlaybackSpeed(2)">2x</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="card-body p-0 bg-black">
-          <div class="ratio ratio-16x9">
-            <iframe id="ytPlayerFrame" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-          </div>
-        </div>
-        <div class="card-footer bg-dark text-white border-0">
-          <h6 id="ytPlayerTitle" class="mb-1 fw-bold">--</h6>
-          <small id="ytPlayerChannel" class="text-muted">--</small>
+        <!-- Hidden YouTube Player -->
+        <div id="ytPlayerContainer" style="width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;">
+          <div id="ytPlayer"></div>
         </div>
       </div>
 
@@ -132,7 +289,6 @@
         </div>
         <div class="card-body p-0">
           <div id="ytResultsList" class="list-group list-group-flush">
-            <!-- Results will be inserted here -->
           </div>
         </div>
       </div>
@@ -152,63 +308,6 @@
         <div class="d-flex align-items-center">
           <div class="spinner-border spinner-border-sm me-3" role="status"></div>
           <span id="downloadStatus">Downloading...</span>
-        </div>
-      </div>
-
-      <!-- YouTube URL Downloader Card -->
-      <div class="card mb-4 p-4 shadow-sm border-0 overflow-hidden position-relative" style="background: linear-gradient(45deg, #1e1e1e, #333);">
-        <div class="card-body text-white position-relative" style="z-index: 2;">
-          <div class="d-flex align-items-center mb-4">
-            <div class="bg-danger rounded-circle p-3 d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-              <i class="bi bi-youtube display-6 text-white"></i>
-            </div>
-            <div>
-              <h1 class="h3 mb-0 fw-bold">Direct URL Download</h1>
-              <p class="mb-0 text-white-50">Paste a YouTube link to download video/audio</p>
-            </div>
-          </div>
-
-          <form method="post" class="row g-2 mb-0">
-            <div class="col-md-9">
-              <input
-                type="text"
-                class="form-control form-control-lg bg-dark text-white border-secondary border-opacity-25"
-                name="video_url"
-                placeholder="https://www.youtube.com/watch?v=..."
-              />
-            </div>
-            <div class="col-md-3">
-              <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold">
-                <i class="bi bi-download me-2"></i>Fetch
-              </button>
-            </div>
-          </form>
-        </div>
-        <div class="position-absolute rounded-circle bg-danger opacity-10" style="width: 200px; height: 200px; top: -50px; right: -50px; z-index: 1;"></div>
-      </div>
-
-      <!-- File Upload Card -->
-      <div class="card mb-4 p-4 shadow-sm border-0" style="background: linear-gradient(45deg, #1a472a, #2d5a3d);">
-        <div class="card-body text-white">
-          <div class="d-flex align-items-center mb-3">
-            <div class="bg-success rounded-circle p-3 d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
-              <i class="bi bi-upload h5 mb-0 text-white"></i>
-            </div>
-            <div>
-              <h5 class="mb-0 fw-bold">Upload Music</h5>
-              <small class="text-white-50">Supported: mp3, wav, ogg, m4a, flac, webm, mp4</small>
-            </div>
-          </div>
-          <form method="post" enctype="multipart/form-data" class="row g-2">
-            <div class="col-md-9">
-              <input type="file" class="form-control form-control-lg bg-dark text-white border-secondary border-opacity-25" name="music_file" accept=".mp3,.wav,.ogg,.m4a,.flac,.webm,.mp4">
-            </div>
-            <div class="col-md-3">
-              <button type="submit" class="btn btn-success btn-lg w-100 fw-bold">
-                <i class="bi bi-cloud-upload me-2"></i>Upload
-              </button>
-            </div>
-          </form>
         </div>
       </div>
 
@@ -241,7 +340,6 @@
           <div class="ratio ratio-16x9 mb-3 rounded overflow-hidden">
             <video id="mainPlayer" controls class="bg-dark">
               <source src="{{ audio_url }}" type="video/{{ 'mp4' if audio_url.endswith('.mp4') else 'webm' }}">
-              Your browser does not support the video tag.
             </video>
           </div>
           {% else %}
@@ -250,7 +348,6 @@
           </div>
           {% endif %}
           
-          <!-- Player Controls -->
           <div class="mt-3 d-flex justify-content-center gap-2 flex-wrap">
             <button onclick="document.getElementById('mainPlayer').play()" class="btn btn-primary">
               <i class="bi bi-play-fill me-1"></i> Play
@@ -274,7 +371,6 @@
           <h4 class="fw-bold mb-0">
             <i class="bi bi-collection-play me-2 text-primary"></i>Music Library
           </h4>
-          <!-- Search Form -->
           <form method="get" class="d-flex gap-2">
             <input type="text" name="search" class="form-control" placeholder="Search library..." value="{{ search_query }}" style="min-width: 200px;">
             <button type="submit" class="btn btn-primary">
@@ -356,6 +452,32 @@
     </div>
   </div>
 
+  <!-- Download Format Modal -->
+  <div class="modal fade" id="downloadFormatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-download me-2"></i>Download Format</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3" id="downloadFormatTitle">Choose download format:</p>
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary btn-lg" onclick="confirmDownload('mp3')">
+              <i class="bi bi-music-note-beamed me-2"></i>MP3 (Audio Only)
+            </button>
+            <button class="btn btn-danger btn-lg" onclick="confirmDownload('video')">
+              <i class="bi bi-film me-2"></i>MP4 (Video)
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Queue Modal -->
   <div class="modal fade" id="queueModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-scrollable">
@@ -417,11 +539,23 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
 <script>
 // State
 let playQueue = [];
 let currentQueueIndex = -1;
 let searchResultsData = [];
+let isPlaying = false;
+let currentTrack = null;
+let pendingDownload = null;
+let ytPlayer = null;
+let playerReady = false;
+let currentVolume = 100;
+let savedVolume = 100;
+let isMuted = false;
+let currentSpeed = 1;
+let progressInterval = null;
 
 // DOM Elements
 const searchInput = document.getElementById('ytSearchInput');
@@ -431,16 +565,111 @@ const resultsList = document.getElementById('ytResultsList');
 const loadingDiv = document.getElementById('ytLoading');
 const downloadProgress = document.getElementById('downloadProgress');
 const downloadStatus = document.getElementById('downloadStatus');
-const playerCard = document.getElementById('ytPlayerCard');
-const playerFrame = document.getElementById('ytPlayerFrame');
-const playerTitle = document.getElementById('ytPlayerTitle');
-const playerChannel = document.getElementById('ytPlayerChannel');
+const audioPlayerCard = document.getElementById('audioPlayerCard');
+const playerTitle = document.getElementById('playerTitle');
+const playerChannel = document.getElementById('playerChannel');
+const playerThumbnail = document.getElementById('playerThumbnail');
+const playerPlayPause = document.getElementById('playerPlayPause');
+const audioVisualizer = document.getElementById('audioVisualizer');
+const seekSlider = document.getElementById('seekSlider');
+const currentTimeEl = document.getElementById('currentTime');
+const totalTimeEl = document.getElementById('totalTime');
+const volumeSlider = document.getElementById('volumeSlider');
+const muteBtn = document.getElementById('muteBtn');
+
+// YouTube IFrame API Ready
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('ytPlayer', {
+    height: '200',
+    width: '200',
+    playerVars: {
+      'autoplay': 1,
+      'controls': 0,
+      'disablekb': 1,
+      'fs': 0,
+      'modestbranding': 1,
+      'rel': 0,
+      'playsinline': 1
+    },
+    events: {
+      'onReady': onPlayerReady,
+      'onStateChange': onPlayerStateChange,
+      'onError': onPlayerError
+    }
+  });
+}
+
+function onPlayerReady(event) {
+  playerReady = true;
+  console.log('YouTube Player Ready');
+}
+
+function onPlayerError(event) {
+  console.error('YouTube Player Error:', event.data);
+  showToast('Playback error. Please try another track.');
+}
+
+function onPlayerStateChange(event) {
+  if (event.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    updatePlayPauseButton();
+    audioVisualizer.classList.remove('paused');
+    startProgressUpdate();
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    updatePlayPauseButton();
+    audioVisualizer.classList.add('paused');
+    stopProgressUpdate();
+  } else if (event.data === YT.PlayerState.ENDED) {
+    isPlaying = false;
+    updatePlayPauseButton();
+    audioVisualizer.classList.add('paused');
+    stopProgressUpdate();
+    // Auto play next
+    if (playQueue.length > 0) {
+      playNextInQueue();
+    }
+  }
+}
+
+// Progress bar update
+function startProgressUpdate() {
+  stopProgressUpdate();
+  progressInterval = setInterval(updateProgress, 500);
+}
+
+function stopProgressUpdate() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+}
+
+function updateProgress() {
+  if (!ytPlayer || !playerReady) return;
+  try {
+    const current = ytPlayer.getCurrentTime() || 0;
+    const total = ytPlayer.getDuration() || 0;
+    const percent = total > 0 ? (current / total) * 100 : 0;
+    seekSlider.value = percent;
+    currentTimeEl.textContent = formatDuration(Math.floor(current));
+    totalTimeEl.textContent = formatDuration(Math.floor(total));
+  } catch(e) {}
+}
+
+// Seek
+function seekTo(value) {
+  if (!ytPlayer || !playerReady) return;
+  const percent = parseFloat(value) / 100;
+  const duration = ytPlayer.getDuration() || 0;
+  ytPlayer.seekTo(percent * duration, true);
+}
 
 // Format duration
 function formatDuration(seconds) {
-  if (!seconds) return '--:--';
+  if (!seconds || isNaN(seconds)) return '0:00';
   const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
@@ -451,29 +680,228 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Play track (without download)
-function playTrack(videoId, title, channel) {
-  playerFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+// Play track
+function playTrack(videoId, title, channel, thumbnail) {
+  // Show previously hidden track in search results
+  if (currentTrack) {
+    const prevTrackEl = document.querySelector(`.track-item[data-video-id="${currentTrack.videoId}"]`);
+    if (prevTrackEl) {
+      prevTrackEl.classList.remove('now-playing');
+    }
+  }
+  
+  currentTrack = { videoId, title, channel, thumbnail };
+  
+  // Hide currently playing track from search results
+  const currentTrackEl = document.querySelector(`.track-item[data-video-id="${videoId}"]`);
+  if (currentTrackEl) {
+    currentTrackEl.classList.add('now-playing');
+  }
+  
+  // Update UI
   playerTitle.textContent = title;
   playerChannel.textContent = channel;
-  playerCard.classList.remove('d-none');
-  playerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('openInYoutubeLink').href = `https://www.youtube.com/watch?v=${videoId}`;
+  
+  if (thumbnail) {
+    playerThumbnail.innerHTML = `<img src="${thumbnail}" style="width: 100%; height: 100%; object-fit: cover;">`;
+  } else {
+    playerThumbnail.innerHTML = '<i class="bi bi-music-note-beamed text-white" style="font-size: 2.5rem;"></i>';
+  }
+  
+  // Show player
+  audioPlayerCard.classList.remove('d-none');
+  audioPlayerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  
+  // Reset seek slider
+  seekSlider.value = 0;
+  
+  // Load and play
+  if (ytPlayer && playerReady) {
+    ytPlayer.loadVideoById(videoId);
+    ytPlayer.setVolume(currentVolume);
+    ytPlayer.setPlaybackRate(currentSpeed);
+  }
+  
+  isPlaying = true;
+  updatePlayPauseButton();
+  audioVisualizer.classList.remove('paused');
 }
 
-// Close player
-function closePlayer() {
-  playerFrame.src = '';
-  playerCard.classList.add('d-none');
+// Toggle play/pause
+function togglePlayPause() {
+  if (!ytPlayer || !playerReady || !currentTrack) return;
+  
+  if (isPlaying) {
+    ytPlayer.pauseVideo();
+  } else {
+    ytPlayer.playVideo();
+  }
 }
 
-// Add to queue
+// Update play/pause button
+function updatePlayPauseButton() {
+  if (isPlaying) {
+    playerPlayPause.innerHTML = '<i class="bi bi-pause-fill"></i>';
+  } else {
+    playerPlayPause.innerHTML = '<i class="bi bi-play-fill"></i>';
+  }
+}
+
+// Stop player
+function stopPlayer() {
+  if (ytPlayer && playerReady) {
+    ytPlayer.stopVideo();
+  }
+  isPlaying = false;
+  audioVisualizer.classList.add('paused');
+  updatePlayPauseButton();
+  seekSlider.value = 0;
+  currentTimeEl.textContent = '0:00';
+  stopProgressUpdate();
+}
+
+// Close audio player
+function closeAudioPlayer() {
+  stopPlayer();
+  audioPlayerCard.classList.add('d-none');
+  
+  // Show the hidden track in search results again
+  if (currentTrack) {
+    const trackEl = document.querySelector(`.track-item[data-video-id="${currentTrack.videoId}"]`);
+    if (trackEl) {
+      trackEl.classList.remove('now-playing');
+    }
+  }
+  
+  currentTrack = null;
+}
+
+// Volume control
+function setVolume(value) {
+  currentVolume = parseInt(value);
+  savedVolume = currentVolume;
+  if (ytPlayer && playerReady) {
+    ytPlayer.unMute();
+    ytPlayer.setVolume(currentVolume);
+  }
+  isMuted = currentVolume === 0;
+  updateMuteButton();
+}
+
+function toggleMute() {
+  if (isMuted) {
+    // Unmute - restore saved volume
+    isMuted = false;
+    currentVolume = savedVolume > 0 ? savedVolume : 50;
+    volumeSlider.value = currentVolume;
+    if (ytPlayer && playerReady) {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(currentVolume);
+    }
+  } else {
+    // Mute - save current volume and set to 0
+    isMuted = true;
+    savedVolume = currentVolume > 0 ? currentVolume : 50;
+    if (ytPlayer && playerReady) {
+      ytPlayer.mute();
+    }
+  }
+  updateMuteButton();
+}
+
+function updateMuteButton() {
+  if (isMuted || currentVolume === 0) {
+    muteBtn.innerHTML = '<i class="bi bi-volume-mute-fill"></i>';
+  } else if (currentVolume < 50) {
+    muteBtn.innerHTML = '<i class="bi bi-volume-down-fill"></i>';
+  } else {
+    muteBtn.innerHTML = '<i class="bi bi-volume-up-fill"></i>';
+  }
+}
+
+// Playback speed
+function setPlaybackSpeed(speed) {
+  currentSpeed = speed;
+  if (ytPlayer && playerReady) {
+    ytPlayer.setPlaybackRate(speed);
+  }
+  // Update button styles
+  document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (parseFloat(btn.textContent) === speed) {
+      btn.classList.add('active');
+    }
+  });
+}
+
+// Current track actions
+function addCurrentToQueue() {
+  if (currentTrack) {
+    addToQueue(currentTrack.videoId, currentTrack.title, currentTrack.channel, currentTrack.thumbnail);
+  }
+}
+
+function downloadCurrentTrack() {
+  if (currentTrack) {
+    showDownloadModal(currentTrack.videoId, currentTrack.title);
+  }
+}
+
+function shareCurrentTrack() {
+  if (currentTrack) {
+    shareTrack(currentTrack.videoId, currentTrack.title);
+  }
+}
+
+// Show download format modal
+function showDownloadModal(videoId, title) {
+  pendingDownload = { videoId, title };
+  document.getElementById('downloadFormatTitle').innerHTML = `<strong>"${escapeHtml(title)}"</strong><br><small class="text-muted">Choose download format:</small>`;
+  new bootstrap.Modal(document.getElementById('downloadFormatModal')).show();
+}
+
+// Confirm download with format
+async function confirmDownload(format) {
+  if (!pendingDownload) return;
+  
+  bootstrap.Modal.getInstance(document.getElementById('downloadFormatModal')).hide();
+  
+  const { videoId, title } = pendingDownload;
+  pendingDownload = null;
+  
+  downloadProgress.classList.remove('d-none');
+  downloadStatus.textContent = `Downloading "${title}" as ${format === 'video' ? 'MP4' : 'MP3'}...`;
+  
+  try {
+    const response = await fetch('/music/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({video_id: videoId, format: format})
+    });
+    
+    const data = await response.json();
+    downloadProgress.classList.add('d-none');
+    
+    if (data.success) {
+      showToast(data.message);
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast('Download failed: ' + data.error);
+    }
+  } catch (err) {
+    downloadProgress.classList.add('d-none');
+    showToast('Download error: ' + err.message);
+  }
+}
+
+// Queue functions
 function addToQueue(videoId, title, channel, thumbnail) {
   playQueue.push({ videoId, title, channel, thumbnail });
   updateQueueUI();
   showToast(`"${title}" added to queue`);
 }
 
-// Play next in queue
 function playNextInQueue() {
   if (playQueue.length === 0) {
     showToast('Queue is empty');
@@ -481,10 +909,19 @@ function playNextInQueue() {
   }
   currentQueueIndex = (currentQueueIndex + 1) % playQueue.length;
   const track = playQueue[currentQueueIndex];
-  playTrack(track.videoId, track.title, track.channel);
+  playTrack(track.videoId, track.title, track.channel, track.thumbnail);
 }
 
-// Clear queue
+function playPrevInQueue() {
+  if (playQueue.length === 0) {
+    showToast('Queue is empty');
+    return;
+  }
+  currentQueueIndex = currentQueueIndex <= 0 ? playQueue.length - 1 : currentQueueIndex - 1;
+  const track = playQueue[currentQueueIndex];
+  playTrack(track.videoId, track.title, track.channel, track.thumbnail);
+}
+
 function clearQueue() {
   playQueue = [];
   currentQueueIndex = -1;
@@ -492,7 +929,6 @@ function clearQueue() {
   showToast('Queue cleared');
 }
 
-// Update queue UI
 function updateQueueUI() {
   const queueList = document.getElementById('queueList');
   if (playQueue.length === 0) {
@@ -505,7 +941,7 @@ function updateQueueUI() {
           <div class="fw-bold small">${escapeHtml(track.title)}</div>
           <small class="text-muted">${escapeHtml(track.channel)}</small>
         </div>
-        <button class="btn btn-sm btn-outline-light me-1" onclick="playTrack('${track.videoId}', '${escapeHtml(track.title).replace(/'/g, "\\'")}', '${escapeHtml(track.channel).replace(/'/g, "\\'")}')">
+        <button class="btn btn-sm btn-outline-light me-1" onclick="playTrack('${track.videoId}', '${escapeHtml(track.title).replace(/'/g, "\\'")}', '${escapeHtml(track.channel).replace(/'/g, "\\'")}', '${track.thumbnail || ''}')">
           <i class="bi bi-play-fill"></i>
         </button>
         <button class="btn btn-sm btn-outline-danger" onclick="removeFromQueue(${index})">
@@ -516,7 +952,6 @@ function updateQueueUI() {
   }
 }
 
-// Remove from queue
 function removeFromQueue(index) {
   playQueue.splice(index, 1);
   if (currentQueueIndex >= index && currentQueueIndex > 0) {
@@ -537,7 +972,6 @@ function shareTrack(videoId, title) {
   new bootstrap.Modal(document.getElementById('shareModal')).show();
 }
 
-// Copy share URL
 function copyShareUrl() {
   const input = document.getElementById('shareUrl');
   input.select();
@@ -584,9 +1018,9 @@ async function searchYouTube(query) {
       `;
     } else {
       resultsList.innerHTML = data.results.map((item, index) => `
-        <div class="list-group-item track-item p-3">
+        <div class="list-group-item track-item p-3" data-video-id="${item.id}">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 me-3 position-relative" style="cursor: pointer;" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}')">
+            <div class="flex-shrink-0 me-3 position-relative" style="cursor: pointer;" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}', '${item.thumbnail || ''}')">
               ${item.thumbnail ? 
                 `<img src="${item.thumbnail}" alt="" class="rounded" style="width: 80px; height: 60px; object-fit: cover;">` :
                 `<div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 80px; height: 60px;"><i class="bi bi-music-note text-white h4 mb-0"></i></div>`
@@ -604,27 +1038,24 @@ async function searchYouTube(query) {
               </p>
             </div>
             <div class="flex-shrink-0 ms-2 d-flex align-items-center gap-1">
-              <!-- Play Button -->
-              <button class="btn btn-success btn-sm" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}')">
+              <button class="btn btn-success btn-sm" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}', '${item.thumbnail || ''}')">
                 <i class="bi bi-play-fill"></i>
               </button>
-              <!-- Download Button -->
-              <button class="btn btn-danger btn-sm" onclick="downloadTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}')">
+              <button class="btn btn-danger btn-sm" onclick="showDownloadModal('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}')">
                 <i class="bi bi-download"></i>
               </button>
-              <!-- More Options Dropdown -->
               <div class="dropdown">
-                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown">
                   <i class="bi bi-three-dots-vertical"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
                   <li>
-                    <a class="dropdown-item" href="#" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}'); return false;">
+                    <a class="dropdown-item" href="#" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}', '${item.thumbnail || ''}'); return false;">
                       <i class="bi bi-play-fill me-2"></i>Play Now
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#" onclick="addToQueue('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}', '${item.thumbnail}'); return false;">
+                    <a class="dropdown-item" href="#" onclick="addToQueue('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}', '${item.thumbnail || ''}'); return false;">
                       <i class="bi bi-collection-play me-2"></i>Add to Queue
                     </a>
                   </li>
@@ -635,7 +1066,7 @@ async function searchYouTube(query) {
                   </li>
                   <li><hr class="dropdown-divider"></li>
                   <li>
-                    <a class="dropdown-item" href="#" onclick="downloadTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}'); return false;">
+                    <a class="dropdown-item" href="#" onclick="showDownloadModal('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}'); return false;">
                       <i class="bi bi-download me-2"></i>Save to Library
                     </a>
                   </li>
@@ -659,36 +1090,17 @@ async function searchYouTube(query) {
     }
     
     searchResults.classList.remove('d-none');
+    
+    // Hide currently playing track if it's in the results
+    if (currentTrack) {
+      const currentTrackEl = document.querySelector(`.track-item[data-video-id="${currentTrack.videoId}"]`);
+      if (currentTrackEl) {
+        currentTrackEl.classList.add('now-playing');
+      }
+    }
   } catch (err) {
     loadingDiv.classList.add('d-none');
     showToast('Error searching: ' + err.message);
-  }
-}
-
-// Download track
-async function downloadTrack(videoId, title) {
-  downloadProgress.classList.remove('d-none');
-  downloadStatus.textContent = `Downloading "${title}"...`;
-  
-  try {
-    const response = await fetch('/music/download', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({video_id: videoId})
-    });
-    
-    const data = await response.json();
-    downloadProgress.classList.add('d-none');
-    
-    if (data.success) {
-      showToast(data.message);
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      showToast('Download failed: ' + data.error);
-    }
-  } catch (err) {
-    downloadProgress.classList.add('d-none');
-    showToast('Download error: ' + err.message);
   }
 }
 
@@ -698,7 +1110,6 @@ searchInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') searchYouTube(searchInput.value);
 });
 
-// Quick search buttons
 document.querySelectorAll('.quick-search').forEach(btn => {
   btn.addEventListener('click', () => {
     searchInput.value = btn.dataset.query;
@@ -706,7 +1117,6 @@ document.querySelectorAll('.quick-search').forEach(btn => {
   });
 });
 
-// Delete music
 function deleteMusic(filename) {
   if (confirm('Are you sure you want to delete "' + filename + '"?')) {
     fetch('/music/delete/' + encodeURIComponent(filename), {
@@ -717,7 +1127,6 @@ function deleteMusic(filename) {
   }
 }
 
-// Show queue modal
 function showQueueModal() {
   updateQueueUI();
   new bootstrap.Modal(document.getElementById('queueModal')).show();
