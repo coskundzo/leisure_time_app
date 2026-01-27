@@ -2,9 +2,160 @@
 
 {% block title %}Music{% endblock %}
 
+{% block extra_head %}
+<style>
+  .now-playing-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, #282828 0%, #181818 100%);
+    padding: 12px 16px;
+    z-index: 1050;
+    border-top: 1px solid #333;
+  }
+  .now-playing-bar .progress {
+    height: 4px;
+    cursor: pointer;
+  }
+  .now-playing-bar .progress:hover {
+    height: 6px;
+  }
+  .track-item:hover .track-actions {
+    opacity: 1;
+  }
+  .track-actions {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .track-item:hover {
+    background-color: rgba(255,255,255,0.05);
+  }
+  .dropdown-menu-dark {
+    background-color: #282828;
+    border: 1px solid #333;
+  }
+  .dropdown-menu-dark .dropdown-item {
+    color: #fff;
+  }
+  .dropdown-menu-dark .dropdown-item:hover {
+    background-color: #333;
+  }
+  .dropdown-menu-dark .dropdown-divider {
+    border-color: #444;
+  }
+  body {
+    padding-bottom: 100px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
   <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10">
+      
+      <!-- YouTube Music Search Card -->
+      <div class="card mb-4 p-4 shadow-sm border-0 overflow-hidden position-relative" style="background: linear-gradient(45deg, #ff0000, #cc0000);">
+        <div class="card-body text-white position-relative" style="z-index: 2;">
+          <div class="d-flex align-items-center mb-4">
+            <div class="bg-white rounded-circle p-3 d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
+              <i class="bi bi-music-note-list display-6 text-danger"></i>
+            </div>
+            <div>
+              <h1 class="h3 mb-0 fw-bold">YouTube Music Search</h1>
+              <p class="mb-0 text-white-50">Search and download music (NCS/Copyright-free recommended)</p>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-0">
+            <div class="col-md-9">
+              <input
+                type="text"
+                id="ytSearchInput"
+                class="form-control form-control-lg bg-dark text-white border-0"
+                placeholder="Search for music... (try: NCS, royalty free, no copyright)"
+              />
+            </div>
+            <div class="col-md-3">
+              <button type="button" id="ytSearchBtn" class="btn btn-light btn-lg w-100 fw-bold text-danger">
+                <i class="bi bi-search me-2"></i>Search
+              </button>
+            </div>
+          </div>
+          
+          <!-- Quick Search Tags -->
+          <div class="mt-3 d-flex flex-wrap gap-2">
+            <span class="text-white-50 small">Quick:</span>
+            <button class="btn btn-sm btn-outline-light quick-search" data-query="NCS no copyright sounds">NCS</button>
+            <button class="btn btn-sm btn-outline-light quick-search" data-query="royalty free music">Royalty Free</button>
+            <button class="btn btn-sm btn-outline-light quick-search" data-query="copyright free background music">Background Music</button>
+            <button class="btn btn-sm btn-outline-light quick-search" data-query="free to use music">Free to Use</button>
+          </div>
+        </div>
+        <div class="position-absolute rounded-circle bg-white opacity-10" style="width: 200px; height: 200px; top: -50px; right: -50px; z-index: 1;"></div>
+      </div>
+
+      <!-- Now Playing Preview -->
+      <div id="ytPlayerCard" class="card mb-4 shadow-sm border-0 d-none">
+        <div class="card-header bg-dark text-white border-0 py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold">
+              <i class="bi bi-play-circle-fill text-danger me-2"></i>Now Playing
+            </h5>
+            <button class="btn btn-sm btn-outline-light" onclick="closePlayer()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0 bg-black">
+          <div class="ratio ratio-16x9">
+            <iframe id="ytPlayerFrame" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+          </div>
+        </div>
+        <div class="card-footer bg-dark text-white border-0">
+          <h6 id="ytPlayerTitle" class="mb-1 fw-bold">--</h6>
+          <small id="ytPlayerChannel" class="text-muted">--</small>
+        </div>
+      </div>
+
+      <!-- YouTube Search Results -->
+      <div id="ytSearchResults" class="card mb-4 shadow-sm border-0 d-none">
+        <div class="card-header bg-white border-0 py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold">
+              <i class="bi bi-youtube text-danger me-2"></i>Search Results
+            </h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('ytSearchResults').classList.add('d-none')">
+              <i class="bi bi-x-lg"></i> Close
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div id="ytResultsList" class="list-group list-group-flush">
+            <!-- Results will be inserted here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div id="ytLoading" class="card mb-4 shadow-sm border-0 d-none">
+        <div class="card-body text-center py-5">
+          <div class="spinner-border text-danger mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mb-0">Searching YouTube Music...</p>
+        </div>
+      </div>
+
+      <!-- Download Progress -->
+      <div id="downloadProgress" class="alert alert-info d-none mb-4">
+        <div class="d-flex align-items-center">
+          <div class="spinner-border spinner-border-sm me-3" role="status"></div>
+          <span id="downloadStatus">Downloading...</span>
+        </div>
+      </div>
+
+      <!-- YouTube URL Downloader Card -->
       <div class="card mb-4 p-4 shadow-sm border-0 overflow-hidden position-relative" style="background: linear-gradient(45deg, #1e1e1e, #333);">
         <div class="card-body text-white position-relative" style="z-index: 2;">
           <div class="d-flex align-items-center mb-4">
@@ -12,8 +163,8 @@
               <i class="bi bi-youtube display-6 text-white"></i>
             </div>
             <div>
-              <h1 class="h3 mb-0 fw-bold">YouTube Music Downloader</h1>
-              <p class="mb-0 text-white-50">Paste a link to start listening</p>
+              <h1 class="h3 mb-0 fw-bold">Direct URL Download</h1>
+              <p class="mb-0 text-white-50">Paste a YouTube link to download video/audio</p>
             </div>
           </div>
 
@@ -24,7 +175,6 @@
                 class="form-control form-control-lg bg-dark text-white border-secondary border-opacity-25"
                 name="video_url"
                 placeholder="https://www.youtube.com/watch?v=..."
-                required
               />
             </div>
             <div class="col-md-3">
@@ -34,8 +184,32 @@
             </div>
           </form>
         </div>
-        <!-- Decorative background circle -->
         <div class="position-absolute rounded-circle bg-danger opacity-10" style="width: 200px; height: 200px; top: -50px; right: -50px; z-index: 1;"></div>
+      </div>
+
+      <!-- File Upload Card -->
+      <div class="card mb-4 p-4 shadow-sm border-0" style="background: linear-gradient(45deg, #1a472a, #2d5a3d);">
+        <div class="card-body text-white">
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-success rounded-circle p-3 d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+              <i class="bi bi-upload h5 mb-0 text-white"></i>
+            </div>
+            <div>
+              <h5 class="mb-0 fw-bold">Upload Music</h5>
+              <small class="text-white-50">Supported: mp3, wav, ogg, m4a, flac, webm, mp4</small>
+            </div>
+          </div>
+          <form method="post" enctype="multipart/form-data" class="row g-2">
+            <div class="col-md-9">
+              <input type="file" class="form-control form-control-lg bg-dark text-white border-secondary border-opacity-25" name="music_file" accept=".mp3,.wav,.ogg,.m4a,.flac,.webm,.mp4">
+            </div>
+            <div class="col-md-3">
+              <button type="submit" class="btn btn-success btn-lg w-100 fw-bold">
+                <i class="bi bi-cloud-upload me-2"></i>Upload
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       {% if error %}
@@ -45,40 +219,508 @@
         </div>
       {% endif %}
 
+      {% if success %}
+        <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+          <i class="bi bi-check-circle-fill me-2 h5 mb-0"></i>
+          <div>{{ success }}</div>
+        </div>
+      {% endif %}
+
+      <!-- Video/Audio Player for downloaded content -->
       {% if audio_url %}
-        <div class="card shadow-sm border-0 p-4 mb-5 bg-white">
-          <div class="text-center mb-4">
-            <div class="display-1 text-danger mb-3">
+        <div class="card shadow-sm border-0 p-4 mb-4 bg-white">
+          <div class="text-center mb-3">
+            <div class="display-4 text-danger mb-2">
               <i class="bi bi-play-circle-fill"></i>
             </div>
-            <h2 class="h4 fw-bold mb-1">Your Track is Ready</h2>
-            <p class="text-muted">Currently playing from server storage</p>
+            <h2 class="h5 fw-bold mb-1">{{ video_title or 'Your Media is Ready' }}</h2>
+            <p class="text-muted small">Downloaded from YouTube</p>
           </div>
           
+          {% if audio_url.endswith('.mp4') or audio_url.endswith('.webm') %}
+          <div class="ratio ratio-16x9 mb-3 rounded overflow-hidden">
+            <video id="mainPlayer" controls class="bg-dark">
+              <source src="{{ audio_url }}" type="video/{{ 'mp4' if audio_url.endswith('.mp4') else 'webm' }}">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          {% else %}
           <div class="p-3 bg-light rounded-4">
-            <audio controls src="{{ audio_url }}" class="w-100"></audio>
+            <audio id="mainPlayer" controls src="{{ audio_url }}" class="w-100"></audio>
           </div>
+          {% endif %}
           
-          <div class="mt-4 d-flex justify-content-center gap-3">
-            <a href="{{ url_for('listen_music') }}" class="btn btn-outline-secondary">
-              <i class="bi bi-plus-lg me-1"></i> New Link
-            </a>
-            <a href="{{ audio_url }}" download class="btn btn-primary">
+          <!-- Player Controls -->
+          <div class="mt-3 d-flex justify-content-center gap-2 flex-wrap">
+            <button onclick="document.getElementById('mainPlayer').play()" class="btn btn-primary">
+              <i class="bi bi-play-fill me-1"></i> Play
+            </button>
+            <button onclick="document.getElementById('mainPlayer').pause()" class="btn btn-warning">
+              <i class="bi bi-pause-fill me-1"></i> Pause
+            </button>
+            <button onclick="document.getElementById('mainPlayer').currentTime = 0; document.getElementById('mainPlayer').pause()" class="btn btn-secondary">
+              <i class="bi bi-stop-fill me-1"></i> Stop
+            </button>
+            <a href="{{ audio_url }}" download class="btn btn-outline-dark">
               <i class="bi bi-download me-1"></i> Save File
             </a>
           </div>
         </div>
-      {% else %}
-        <div class="text-center py-5">
-            <div class="opacity-25 mb-4">
-                <i class="bi bi-music-note-beamed" style="font-size: 5rem;"></i>
-            </div>
-            <h4 class="text-muted fw-bold">Ready to Play</h4>
-            <p class="text-muted small mx-auto" style="max-width: 300px;">
-                Simply paste a YouTube video or music link above and we'll handle the rest.
-            </p>
-        </div>
       {% endif %}
+
+      <!-- Music Library -->
+      <div class="card shadow-sm border-0 p-4 mb-4 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h4 class="fw-bold mb-0">
+            <i class="bi bi-collection-play me-2 text-primary"></i>Music Library
+          </h4>
+          <!-- Search Form -->
+          <form method="get" class="d-flex gap-2">
+            <input type="text" name="search" class="form-control" placeholder="Search library..." value="{{ search_query }}" style="min-width: 200px;">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-search"></i>
+            </button>
+            {% if search_query %}
+            <a href="{{ url_for('listen_music') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg"></i>
+            </a>
+            {% endif %}
+          </form>
+        </div>
+
+        {% if music_files %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 50px;"></th>
+                  <th>Name</th>
+                  <th style="width: 300px;">Player</th>
+                  <th style="width: 150px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for file in music_files %}
+                <tr>
+                  <td>
+                    <i class="bi bi-{% if file.name.endswith('.mp4') or file.name.endswith('.webm') %}film{% else %}music-note-beamed{% endif %} text-primary h5 mb-0"></i>
+                  </td>
+                  <td class="fw-medium">{{ file.name }}</td>
+                  <td>
+                    {% if file.name.endswith('.mp4') or file.name.endswith('.webm') %}
+                    <video controls class="w-100 rounded" style="max-height: 100px;">
+                      <source src="{{ file.url }}" type="video/{{ 'mp4' if file.name.endswith('.mp4') else 'webm' }}">
+                    </video>
+                    {% else %}
+                    <audio controls src="{{ file.url }}" class="w-100" style="height: 35px;"></audio>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm">
+                      <a href="{{ file.url }}" download class="btn btn-outline-primary" title="Download">
+                        <i class="bi bi-download"></i>
+                      </a>
+                      <button type="button" class="btn btn-outline-danger" onclick="deleteMusic('{{ file.name }}')" title="Delete">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <div class="opacity-25 mb-4">
+              <i class="bi bi-music-note-beamed" style="font-size: 5rem;"></i>
+            </div>
+            <h5 class="text-muted fw-bold">
+              {% if search_query %}
+                No results for "{{ search_query }}"
+              {% else %}
+                No Music Yet
+              {% endif %}
+            </h5>
+            <p class="text-muted small mx-auto" style="max-width: 300px;">
+              {% if search_query %}
+                Try a different search term or clear the search.
+              {% else %}
+                Search YouTube Music above or upload files to get started.
+              {% endif %}
+            </p>
+          </div>
+        {% endif %}
+      </div>
+
     </div>
   </div>
+
+  <!-- Queue Modal -->
+  <div class="modal fade" id="queueModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title"><i class="bi bi-collection-play me-2"></i>Play Queue</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div id="queueList" class="list-group list-group-flush">
+            <div class="list-group-item bg-dark text-muted text-center py-4">
+              Queue is empty
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearQueue()">
+            <i class="bi bi-trash me-1"></i>Clear Queue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share Modal -->
+  <div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-share me-2"></i>Share Track</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2 fw-bold" id="shareTitle">--</p>
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" id="shareUrl" readonly>
+            <button class="btn btn-primary" onclick="copyShareUrl()">
+              <i class="bi bi-clipboard"></i> Copy
+            </button>
+          </div>
+          <div class="d-flex gap-2 justify-content-center">
+            <a id="shareWhatsapp" href="#" target="_blank" class="btn btn-success">
+              <i class="bi bi-whatsapp"></i>
+            </a>
+            <a id="shareTelegram" href="#" target="_blank" class="btn btn-info text-white">
+              <i class="bi bi-telegram"></i>
+            </a>
+            <a id="shareTwitter" href="#" target="_blank" class="btn btn-dark">
+              <i class="bi bi-twitter-x"></i>
+            </a>
+            <a id="shareFacebook" href="#" target="_blank" class="btn btn-primary">
+              <i class="bi bi-facebook"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// State
+let playQueue = [];
+let currentQueueIndex = -1;
+let searchResultsData = [];
+
+// DOM Elements
+const searchInput = document.getElementById('ytSearchInput');
+const searchBtn = document.getElementById('ytSearchBtn');
+const searchResults = document.getElementById('ytSearchResults');
+const resultsList = document.getElementById('ytResultsList');
+const loadingDiv = document.getElementById('ytLoading');
+const downloadProgress = document.getElementById('downloadProgress');
+const downloadStatus = document.getElementById('downloadStatus');
+const playerCard = document.getElementById('ytPlayerCard');
+const playerFrame = document.getElementById('ytPlayerFrame');
+const playerTitle = document.getElementById('ytPlayerTitle');
+const playerChannel = document.getElementById('ytPlayerChannel');
+
+// Format duration
+function formatDuration(seconds) {
+  if (!seconds) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Play track (without download)
+function playTrack(videoId, title, channel) {
+  playerFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  playerTitle.textContent = title;
+  playerChannel.textContent = channel;
+  playerCard.classList.remove('d-none');
+  playerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Close player
+function closePlayer() {
+  playerFrame.src = '';
+  playerCard.classList.add('d-none');
+}
+
+// Add to queue
+function addToQueue(videoId, title, channel, thumbnail) {
+  playQueue.push({ videoId, title, channel, thumbnail });
+  updateQueueUI();
+  showToast(`"${title}" added to queue`);
+}
+
+// Play next in queue
+function playNextInQueue() {
+  if (playQueue.length === 0) {
+    showToast('Queue is empty');
+    return;
+  }
+  currentQueueIndex = (currentQueueIndex + 1) % playQueue.length;
+  const track = playQueue[currentQueueIndex];
+  playTrack(track.videoId, track.title, track.channel);
+}
+
+// Clear queue
+function clearQueue() {
+  playQueue = [];
+  currentQueueIndex = -1;
+  updateQueueUI();
+  showToast('Queue cleared');
+}
+
+// Update queue UI
+function updateQueueUI() {
+  const queueList = document.getElementById('queueList');
+  if (playQueue.length === 0) {
+    queueList.innerHTML = '<div class="list-group-item bg-dark text-muted text-center py-4">Queue is empty</div>';
+  } else {
+    queueList.innerHTML = playQueue.map((track, index) => `
+      <div class="list-group-item bg-dark text-white d-flex align-items-center ${index === currentQueueIndex ? 'border-start border-danger border-3' : ''}">
+        <span class="me-3 text-muted">${index + 1}</span>
+        <div class="flex-grow-1">
+          <div class="fw-bold small">${escapeHtml(track.title)}</div>
+          <small class="text-muted">${escapeHtml(track.channel)}</small>
+        </div>
+        <button class="btn btn-sm btn-outline-light me-1" onclick="playTrack('${track.videoId}', '${escapeHtml(track.title).replace(/'/g, "\\'")}', '${escapeHtml(track.channel).replace(/'/g, "\\'")}')">
+          <i class="bi bi-play-fill"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger" onclick="removeFromQueue(${index})">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+    `).join('');
+  }
+}
+
+// Remove from queue
+function removeFromQueue(index) {
+  playQueue.splice(index, 1);
+  if (currentQueueIndex >= index && currentQueueIndex > 0) {
+    currentQueueIndex--;
+  }
+  updateQueueUI();
+}
+
+// Share track
+function shareTrack(videoId, title) {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  document.getElementById('shareTitle').textContent = title;
+  document.getElementById('shareUrl').value = url;
+  document.getElementById('shareWhatsapp').href = `https://wa.me/?text=${encodeURIComponent(title + ' ' + url)}`;
+  document.getElementById('shareTelegram').href = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
+  document.getElementById('shareTwitter').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`;
+  document.getElementById('shareFacebook').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+  new bootstrap.Modal(document.getElementById('shareModal')).show();
+}
+
+// Copy share URL
+function copyShareUrl() {
+  const input = document.getElementById('shareUrl');
+  input.select();
+  document.execCommand('copy');
+  showToast('URL copied to clipboard');
+}
+
+// Show toast
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-5 px-4 py-2 bg-dark text-white rounded-pill shadow';
+  toast.style.zIndex = '9999';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2000);
+}
+
+// Search YouTube
+async function searchYouTube(query) {
+  if (!query.trim()) return;
+  
+  loadingDiv.classList.remove('d-none');
+  searchResults.classList.add('d-none');
+  
+  try {
+    const response = await fetch(`/music/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    
+    loadingDiv.classList.add('d-none');
+    
+    if (data.error) {
+      showToast('Search error: ' + data.error);
+      return;
+    }
+    
+    searchResultsData = data.results;
+    
+    if (data.results.length === 0) {
+      resultsList.innerHTML = `
+        <div class="list-group-item text-center py-4 text-muted">
+          <i class="bi bi-search h4 mb-2 d-block"></i>
+          No results found for "${escapeHtml(query)}"
+        </div>
+      `;
+    } else {
+      resultsList.innerHTML = data.results.map((item, index) => `
+        <div class="list-group-item track-item p-3">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0 me-3 position-relative" style="cursor: pointer;" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}')">
+              ${item.thumbnail ? 
+                `<img src="${item.thumbnail}" alt="" class="rounded" style="width: 80px; height: 60px; object-fit: cover;">` :
+                `<div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 80px; height: 60px;"><i class="bi bi-music-note text-white h4 mb-0"></i></div>`
+              }
+              <div class="position-absolute top-50 start-50 translate-middle">
+                <i class="bi bi-play-circle-fill text-white h3 mb-0" style="text-shadow: 0 0 10px rgba(0,0,0,0.5);"></i>
+              </div>
+            </div>
+            <div class="flex-grow-1 min-width-0">
+              <h6 class="mb-1 fw-bold text-truncate">${escapeHtml(item.title)}</h6>
+              <p class="mb-0 small text-muted">
+                <i class="bi bi-person-fill me-1"></i>${escapeHtml(item.channel)}
+                <span class="mx-2">|</span>
+                <i class="bi bi-clock me-1"></i>${formatDuration(item.duration)}
+              </p>
+            </div>
+            <div class="flex-shrink-0 ms-2 d-flex align-items-center gap-1">
+              <!-- Play Button -->
+              <button class="btn btn-success btn-sm" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}')">
+                <i class="bi bi-play-fill"></i>
+              </button>
+              <!-- Download Button -->
+              <button class="btn btn-danger btn-sm" onclick="downloadTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}')">
+                <i class="bi bi-download"></i>
+              </button>
+              <!-- More Options Dropdown -->
+              <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="playTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}'); return false;">
+                      <i class="bi bi-play-fill me-2"></i>Play Now
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="addToQueue('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}', '${escapeHtml(item.channel).replace(/'/g, "\\'")}', '${item.thumbnail}'); return false;">
+                      <i class="bi bi-collection-play me-2"></i>Add to Queue
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="playNextInQueue(); return false;">
+                      <i class="bi bi-skip-forward-fill me-2"></i>Play Next
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="downloadTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}'); return false;">
+                      <i class="bi bi-download me-2"></i>Save to Library
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="shareTrack('${item.id}', '${escapeHtml(item.title).replace(/'/g, "\\'")}'); return false;">
+                      <i class="bi bi-share me-2"></i>Share
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <a class="dropdown-item" href="https://www.youtube.com/watch?v=${item.id}" target="_blank">
+                      <i class="bi bi-youtube me-2"></i>Open in YouTube
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    searchResults.classList.remove('d-none');
+  } catch (err) {
+    loadingDiv.classList.add('d-none');
+    showToast('Error searching: ' + err.message);
+  }
+}
+
+// Download track
+async function downloadTrack(videoId, title) {
+  downloadProgress.classList.remove('d-none');
+  downloadStatus.textContent = `Downloading "${title}"...`;
+  
+  try {
+    const response = await fetch('/music/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({video_id: videoId})
+    });
+    
+    const data = await response.json();
+    downloadProgress.classList.add('d-none');
+    
+    if (data.success) {
+      showToast(data.message);
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast('Download failed: ' + data.error);
+    }
+  } catch (err) {
+    downloadProgress.classList.add('d-none');
+    showToast('Download error: ' + err.message);
+  }
+}
+
+// Event listeners
+searchBtn.addEventListener('click', () => searchYouTube(searchInput.value));
+searchInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') searchYouTube(searchInput.value);
+});
+
+// Quick search buttons
+document.querySelectorAll('.quick-search').forEach(btn => {
+  btn.addEventListener('click', () => {
+    searchInput.value = btn.dataset.query;
+    searchYouTube(btn.dataset.query);
+  });
+});
+
+// Delete music
+function deleteMusic(filename) {
+  if (confirm('Are you sure you want to delete "' + filename + '"?')) {
+    fetch('/music/delete/' + encodeURIComponent(filename), {
+      method: 'POST'
+    }).then(() => {
+      location.reload();
+    });
+  }
+}
+
+// Show queue modal
+function showQueueModal() {
+  updateQueueUI();
+  new bootstrap.Modal(document.getElementById('queueModal')).show();
+}
+</script>
 {% endblock %}
